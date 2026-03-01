@@ -37,5 +37,5 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./data/
-          # CHANGE THIS: Just "/" means "right here"
-          server-dir: /
+          # CHANGE THIS: Point directly to your domain folder
+          server-dir: /domains/lottong-pinoy.com/public_html/
