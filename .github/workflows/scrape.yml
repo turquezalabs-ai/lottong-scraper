@@ -4,7 +4,7 @@ on:
   schedule:
     # Runs at 9:00 PM Philippines Time (13:00 UTC)
     - cron: '0 13 * * *'
-  workflow_dispatch: # Allows you to click "Run" manually for testing
+  workflow_dispatch: # Allows manual run
 
 jobs:
   scrape-and-upload:
@@ -19,9 +19,14 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install Dependencies
+      # CRITICAL FIX: Install Chrome Dependencies
+      - name: Install Browser Dependencies
         run: |
-          npm init -y
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+
+      - name: Install NPM Packages
+        run: |
           npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
 
       - name: Run Scraper
