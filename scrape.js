@@ -3,6 +3,7 @@ const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
 const path = require('path');
+const https = require('https'); // Needed to download file
 
 puppeteer.use(StealthPlugin());
 
@@ -10,6 +11,7 @@ puppeteer.use(StealthPlugin());
 const OUTPUT_DIR = 'data';
 const OUTPUT_FILE = path.join(OUTPUT_DIR, 'results.json');
 const PCSO_URL = 'https://www.pcso.gov.ph/SearchLottoResult.aspx';
+const LIVE_DATA_URL = 'https://lottong-pinoy.com/results.json'; // Your live data
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // 2. GAMES MAP
@@ -29,17 +31,38 @@ const GAMES = [
     { id: '11', name: '2D Lotto 9PM' }
 ];
 
+// Helper: Download JSON from your site
+async function fetchExistingData(url) {
+    return new Promise((resolve) => {
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(data));
+                } catch (e) {
+                    console.log("⚠️ No existing data found or invalid JSON. Starting fresh.");
+                resolve([]);
+                }
+            });
+        }).on('error', () => {
+            console.log("⚠️ Could not fetch existing data. Starting fresh.");
+            resolve([]);
+        });
+    });
+}
+
 (async () => {
-    console.log("🚀 Starting Full PCSO Scraper (Cloud Mode)...");
+    console.log("🚀 Starting Smart PCSO Scraper...");
     
+    // 1. Download existing data from your website first!
+    console.log("⬇️ Downloading existing history...");
+    let currentData = await fetchExistingData(LIVE_DATA_URL);
+    console.log(`💾 Loaded ${currentData.length} existing entries.`);
+
     const browser = await puppeteer.launch({ 
         headless: 'new',
-        args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox',
-            '--disable-gpu',
-            '--disable-dev-shm-usage'
-        ]
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-gpu', '--disable-dev-shm-usage']
     });
     
     const page = await browser.newPage();
@@ -60,15 +83,14 @@ const GAMES = [
         const toDay = now.getDate().toString();
 
         const past = new Date();
-        past.setDate(past.getDate() - 30);
+        past.setDate(past.getDate() - 30); // Check last 30 days for updates
         const fromMonth = months[past.getMonth()];
         const fromYear = past.getFullYear().toString();
         const fromDay = past.getDate().toString();
 
         console.log(`📅 Set Range: ${fromMonth} ${fromDay} TO ${toMonth} ${toDay}`);
 
-        let currentData = [];
-        let totalNew = 0;
+        let newCount = 0;
 
         for (const game of GAMES) {
             console.log(`🔍 Scraping ${game.name}...`);
@@ -86,7 +108,6 @@ const GAMES = [
                 await page.evaluate(() => document.querySelector('#cphContainer_cpContent_btnSearch').click());
                 await wait(5000); 
 
-                // Extract
                 const results = await page.evaluate(() => {
                     const items = [];
                     const table = document.querySelector('#cphContainer_cpContent_GridView1');
@@ -96,11 +117,8 @@ const GAMES = [
                         const cells = row.querySelectorAll('td');
                         if (cells.length >= 5) {
                             const game = cells[0].innerText.trim();
-                            
-                            // FIX: SWAPPED INDICES (Combo is [1], Date is [2])
-                            const combo = cells[1].innerText.trim();   // Combination is column 2 (index 1)
-                            const dateStr = cells[2].innerText.trim(); // Date is column 3 (index 2)
-                            
+                            const combo = cells[1].innerText.trim();
+                            const dateStr = cells[2].innerText.trim();
                             const prize = cells[3].innerText.trim();
                             const winners = cells[4].innerText.trim();
 
@@ -114,21 +132,20 @@ const GAMES = [
                     return items;
                 });
 
-                let count = 0;
                 results.forEach(item => {
+                    // Add only if not already in list
                     if (!currentData.some(i => i.date === item.date && i.combination === item.combination)) {
                         currentData.push(item);
-                        count++;
+                        newCount++;
                     }
                 });
-                if (count > 0) console.log(`   ✅ Added ${count} entries.`);
                 
             } catch (e) {
                 console.log(`   ❌ Error on ${game.name}: ${e.message}`);
             }
         }
 
-        // Sort by date DESCENDING (Newest on Top)
+        // Sort
         currentData.sort((a, b) => {
             const getTs = (str) => {
                 const parts = str.split('-');
@@ -137,19 +154,15 @@ const GAMES = [
             return getTs(b.date) - getTs(a.date);
         });
 
-        // --- SAVE FILE ---
-        
-        if (currentData.length === 0) {
-             console.log("⚠️ WARNING: No data found. Scraper was likely blocked.");
-             return;
+        // Save
+        if (newCount === 0) {
+            console.log("✅ Data is already up to date. No new entries found.");
+        } else {
+            console.log(`💾 Added ${newCount} new entries. Total: ${currentData.length}`);
         }
 
-        if (!fs.existsSync(OUTPUT_DIR)){
-            fs.mkdirSync(OUTPUT_DIR);
-        }
-
+        if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
         fs.writeFileSync(OUTPUT_FILE, JSON.stringify(currentData, null, 2));
-        console.log(`💾 Saved ${currentData.length} entries (Newest First).`);
 
     } catch (error) {
         console.error("❌ Fatal Error:", error.message);
