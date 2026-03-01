@@ -30,7 +30,7 @@ jobs:
       - name: Run Scraper
         run: node scrape.js
 
-      -       - name: Upload to Hostinger (FTP)
+      - name: Upload to Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@4.3.0
         with:
           server: ${{ secrets.FTP_SERVER }}
