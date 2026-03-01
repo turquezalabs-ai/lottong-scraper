@@ -140,11 +140,18 @@ const GAMES = [
             }
         }
 
-        // Sort by date descending
+               // Sort by date descending
         currentData.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         // --- SAVE FILE ---
         
+        // SAFETY CHECK: If we found 0 new results, STOP. Do not overwrite server data with empty file.
+        if (currentData.length === 0) {
+            console.log("⚠️ WARNING: No data found. Scraper was likely blocked or site is down.");
+            console.log("🛑 Aborting upload to prevent data loss on server.");
+            return; // Exit without saving
+        }
+
         // 1. Create directory if it doesn't exist
         if (!fs.existsSync(OUTPUT_DIR)){
             fs.mkdirSync(OUTPUT_DIR);
@@ -161,3 +168,4 @@ const GAMES = [
 
     await browser.close();
 })();
+
