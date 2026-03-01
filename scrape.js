@@ -140,26 +140,36 @@ const GAMES = [
             }
         }
 
-               // Sort by date descending
-        currentData.sort((a, b) => new Date(b.date) - new Date(a.date));
+                      // Sort by date DESCENDING (Newest on Top)
+        currentData.sort((a, b) => {
+            // Helper: Convert "YYYY-MM-DD" to a reliable number for comparison
+            const getTs = (str) => {
+                const parts = str.split('-'); // [Year, Month, Day]
+                // Create timestamp (Year * 10000 + Month * 100 + Day)
+                // This avoids timezone issues with new Date()
+                return parseInt(parts[0]) * 10000 + parseInt(parts[1]) * 100 + parseInt(parts[2]);
+            };
+            
+            // b - a = Descending (Newest First)
+            return getTs(b.date) - getTs(a.date);
+        });
 
         // --- SAVE FILE ---
         
-        // SAFETY CHECK: If we found 0 new results, STOP. Do not overwrite server data with empty file.
+        // Safety Check
         if (currentData.length === 0) {
-            console.log("⚠️ WARNING: No data found. Scraper was likely blocked or site is down.");
-            console.log("🛑 Aborting upload to prevent data loss on server.");
-            return; // Exit without saving
+             console.log("⚠️ WARNING: No data found. Scraper was likely blocked.");
+             return;
         }
 
-        // 1. Create directory if it doesn't exist
+        // Create directory
         if (!fs.existsSync(OUTPUT_DIR)){
             fs.mkdirSync(OUTPUT_DIR);
         }
 
-        // 2. Write file
+        // Save
         fs.writeFileSync(OUTPUT_FILE, JSON.stringify(currentData, null, 2));
-        console.log(`💾 Saved ${currentData.length} entries to ${OUTPUT_FILE}`);
+        console.log(`💾 Saved ${currentData.length} entries (Newest First).`);
 
     } catch (error) {
         console.error("❌ Fatal Error:", error.message);
@@ -168,4 +178,5 @@ const GAMES = [
 
     await browser.close();
 })();
+
 
