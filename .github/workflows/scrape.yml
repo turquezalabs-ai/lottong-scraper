@@ -1,0 +1,39 @@
+name: Daily PCSO Scraper
+
+on:
+  schedule:
+    # Runs at 9:00 PM Philippines Time (13:00 UTC)
+    - cron: '0 13 * * *'
+  workflow_dispatch: # Allows you to click "Run" manually for testing
+
+jobs:
+  scrape-and-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: |
+          npm init -y
+          npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+
+      - name: Run Scraper
+        run: node cron/scrape.js
+
+      - name: Upload to Hostinger (FTP)
+        uses: SamKirkland/FTP-Deploy-Action@4.3.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: /public_html/
+          exclude: "*" 
+          include: "results.json"
