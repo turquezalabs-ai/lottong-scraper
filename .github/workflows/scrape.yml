@@ -36,6 +36,6 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          # FIX: Added trailing slash /
           local-dir: ./data/
-          server-dir: /public_html/
+          # CHANGE THIS: Just "/" means "right here"
+          server-dir: /
