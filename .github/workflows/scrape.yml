@@ -30,7 +30,7 @@ jobs:
           npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
 
       - name: Run Scraper
-        run: node cron/scrape.js
+        run: node scrape.js
 
       - name: Upload to Hostinger (FTP)
         uses: SamKirkland/FTP-Deploy-Action@4.3.0
