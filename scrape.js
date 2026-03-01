@@ -33,19 +33,19 @@ const GAMES = [
     console.log("🚀 Starting Full PCSO Scraper (Cloud Mode)...");
     
     const browser = await puppeteer.launch({ 
-        headless: 'new', // Optimized for cloud
+        headless: 'new',
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox',
             '--disable-gpu',
-            '--disable-dev-shm-usage' // Helps with memory on servers
+            '--disable-dev-shm-usage'
         ]
     });
     
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 768 });
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setDefaultTimeout(60000); // 60s timeout
+    await page.setDefaultTimeout(60000);
 
     try {
         console.log("🌐 Navigating to PCSO...");
@@ -55,12 +55,10 @@ const GAMES = [
         const now = new Date();
         const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         
-        // To Date = Today
         const toMonth = months[now.getMonth()];
         const toYear = now.getFullYear().toString();
         const toDay = now.getDate().toString();
 
-        // From Date = 30 Days Ago
         const past = new Date();
         past.setDate(past.getDate() - 30);
         const fromMonth = months[past.getMonth()];
@@ -69,35 +67,23 @@ const GAMES = [
 
         console.log(`📅 Set Range: ${fromMonth} ${fromDay} TO ${toMonth} ${toDay}`);
 
-        // Load existing data (if any)
         let currentData = [];
-        // Note: In GitHub Actions, we start fresh usually, but logic remains
-        // We will just merge into memory.
-
         let totalNew = 0;
 
-        // Loop through games
         for (const game of GAMES) {
             console.log(`🔍 Scraping ${game.name}...`);
 
             try {
-                // Set FROM Date
                 await page.select('#cphContainer_cpContent_ddlStartMonth', fromMonth);
                 await page.select('#cphContainer_cpContent_ddlStartYear', fromYear);
                 await page.select('#cphContainer_cpContent_ddlStartDate', fromDay);
 
-                // Set TO Date
                 await page.select('#cphContainer_cpContent_ddlEndMonth', toMonth);
                 await page.select('#cphContainer_cpContent_ddlEndYear', toYear);
                 await page.select('#cphContainer_cpContent_ddlEndDay', toDay);
 
-                // Select Game
                 await page.select('#cphContainer_cpContent_ddlSelectGame', game.id);
-
-                // Click Search
                 await page.evaluate(() => document.querySelector('#cphContainer_cpContent_btnSearch').click());
-
-                // Wait for table
                 await wait(5000); 
 
                 // Extract
@@ -110,8 +96,11 @@ const GAMES = [
                         const cells = row.querySelectorAll('td');
                         if (cells.length >= 5) {
                             const game = cells[0].innerText.trim();
-                            const dateStr = cells[1].innerText.trim();
-                            const combo = cells[2].innerText.trim();
+                            
+                            // FIX: SWAPPED INDICES (Combo is [1], Date is [2])
+                            const combo = cells[1].innerText.trim();   // Combination is column 2 (index 1)
+                            const dateStr = cells[2].innerText.trim(); // Date is column 3 (index 2)
+                            
                             const prize = cells[3].innerText.trim();
                             const winners = cells[4].innerText.trim();
 
@@ -125,7 +114,6 @@ const GAMES = [
                     return items;
                 });
 
-                // Merge
                 let count = 0;
                 results.forEach(item => {
                     if (!currentData.some(i => i.date === item.date && i.combination === item.combination)) {
@@ -140,43 +128,33 @@ const GAMES = [
             }
         }
 
-                      // Sort by date DESCENDING (Newest on Top)
+        // Sort by date DESCENDING (Newest on Top)
         currentData.sort((a, b) => {
-            // Helper: Convert "YYYY-MM-DD" to a reliable number for comparison
             const getTs = (str) => {
-                const parts = str.split('-'); // [Year, Month, Day]
-                // Create timestamp (Year * 10000 + Month * 100 + Day)
-                // This avoids timezone issues with new Date()
+                const parts = str.split('-');
                 return parseInt(parts[0]) * 10000 + parseInt(parts[1]) * 100 + parseInt(parts[2]);
             };
-            
-            // b - a = Descending (Newest First)
             return getTs(b.date) - getTs(a.date);
         });
 
         // --- SAVE FILE ---
         
-        // Safety Check
         if (currentData.length === 0) {
              console.log("⚠️ WARNING: No data found. Scraper was likely blocked.");
              return;
         }
 
-        // Create directory
         if (!fs.existsSync(OUTPUT_DIR)){
             fs.mkdirSync(OUTPUT_DIR);
         }
 
-        // Save
         fs.writeFileSync(OUTPUT_FILE, JSON.stringify(currentData, null, 2));
         console.log(`💾 Saved ${currentData.length} entries (Newest First).`);
 
     } catch (error) {
         console.error("❌ Fatal Error:", error.message);
-        process.exit(1); // Exit with error code so Action fails
+        process.exit(1);
     }
 
     await browser.close();
 })();
-
-
