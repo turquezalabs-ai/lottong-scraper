@@ -1,3 +1,4 @@
+// scrape.js
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const fs = require('fs');
@@ -5,11 +6,13 @@ const path = require('path');
 
 puppeteer.use(StealthPlugin());
 
-const OUTPUT_FILE = 'results.json'; // Save in the root for easy upload
+// 1. CONFIGURATION
+const OUTPUT_DIR = 'data';
+const OUTPUT_FILE = path.join(OUTPUT_DIR, 'results.json');
 const PCSO_URL = 'https://www.pcso.gov.ph/SearchLottoResult.aspx';
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// All Games Map
+// 2. GAMES MAP
 const GAMES = [
     { id: '18', name: 'Ultra Lotto 6/58' },
     { id: '17', name: 'Grand Lotto 6/55' },
@@ -27,31 +30,37 @@ const GAMES = [
 ];
 
 (async () => {
-    console.log("🚀 Starting Full PCSO Scraper (Last 30 Days)...");
+    console.log("🚀 Starting Full PCSO Scraper (Cloud Mode)...");
     
     const browser = await puppeteer.launch({ 
-        headless: true, 
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        headless: 'new', // Optimized for cloud
+        args: [
+            '--no-sandbox', 
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-dev-shm-usage' // Helps with memory on servers
+        ]
     });
     
     const page = await browser.newPage();
     await page.setViewport({ width: 1366, height: 768 });
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.setDefaultTimeout(30000);
+    await page.setDefaultTimeout(60000); // 60s timeout
 
     try {
+        console.log("🌐 Navigating to PCSO...");
         await page.goto(PCSO_URL, { waitUntil: 'networkidle2' });
 
         // --- DATE LOGIC: LAST 30 DAYS ---
         const now = new Date();
         const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         
-        // TO Date = Today
+        // To Date = Today
         const toMonth = months[now.getMonth()];
         const toYear = now.getFullYear().toString();
         const toDay = now.getDate().toString();
 
-        // FROM Date = 30 Days Ago
+        // From Date = 30 Days Ago
         const past = new Date();
         past.setDate(past.getDate() - 30);
         const fromMonth = months[past.getMonth()];
@@ -60,12 +69,14 @@ const GAMES = [
 
         console.log(`📅 Set Range: ${fromMonth} ${fromDay} TO ${toMonth} ${toDay}`);
 
-        // Load existing data once
+        // Load existing data (if any)
         let currentData = [];
-        if (fs.existsSync(OUTPUT_FILE)) currentData = JSON.parse(fs.readFileSync(OUTPUT_FILE));
+        // Note: In GitHub Actions, we start fresh usually, but logic remains
+        // We will just merge into memory.
+
         let totalNew = 0;
 
-        // Loop through all games
+        // Loop through games
         for (const game of GAMES) {
             console.log(`🔍 Scraping ${game.name}...`);
 
@@ -125,17 +136,27 @@ const GAMES = [
                 if (count > 0) console.log(`   ✅ Added ${count} entries.`);
                 
             } catch (e) {
-                console.log(`   ❌ Error on ${game.name}`);
+                console.log(`   ❌ Error on ${game.name}: ${e.message}`);
             }
         }
 
-        // Final Save
+        // Sort by date descending
         currentData.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        // --- SAVE FILE ---
+        
+        // 1. Create directory if it doesn't exist
+        if (!fs.existsSync(OUTPUT_DIR)){
+            fs.mkdirSync(OUTPUT_DIR);
+        }
+
+        // 2. Write file
         fs.writeFileSync(OUTPUT_FILE, JSON.stringify(currentData, null, 2));
-        console.log(`🎉 Finished! Total entries: ${currentData.length}`);
+        console.log(`💾 Saved ${currentData.length} entries to ${OUTPUT_FILE}`);
 
     } catch (error) {
         console.error("❌ Fatal Error:", error.message);
+        process.exit(1); // Exit with error code so Action fails
     }
 
     await browser.close();
