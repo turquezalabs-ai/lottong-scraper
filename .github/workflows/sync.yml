@@ -1,0 +1,65 @@
+name: PCSO Hybrid Sync
+
+on:
+  schedule:
+    # ==========================================
+    # REALTIME SCRAPER (Speed Layer)
+    # Runs at 10 mins AND 30 mins after every draw
+    # ==========================================
+    
+    # 11:10 AM & 11:30 AM Philippine Time (UTC 03:10, 03:30)
+    - cron: '10,30 3 * * *'
+    
+    # 2:10 PM & 2:30 PM Philippine Time (UTC 06:10, 06:30)
+    - cron: '10,30 6 * * *'
+    
+    # 5:10 PM & 5:30 PM Philippine Time (UTC 09:10, 09:30)
+    - cron: '10,30 9 * * *'
+    
+    # 9:10 PM & 9:30 PM Philippine Time (UTC 13:10, 13:30)
+    - cron: '10,30 13 * * *'
+    
+    # ==========================================
+    # DEEP SCRAPER (Accuracy Layer)
+    # Runs once a day at 8:00 AM Philippine Time (UTC 00:00)
+    # ==========================================
+    - cron: '0 0 * * *'
+    
+  workflow_dispatch: 
+
+jobs:
+  scrape-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install Dependencies
+      run: npm install
+
+    # LOGIC:
+    # If it's the Midnight run (00:00 UTC), run the DEEP scraper.
+    # Otherwise, run the FAST scraper.
+    
+    - name: Run Deep Scraper (Daily Official Backup)
+      if: github.event.schedule == '0 0 * * *'
+      run: node scrape.js
+
+    - name: Run Fast Scraper (Real-time)
+      if: github.event.schedule != '0 0 * * *'
+      run: node scrape_fast.js
+
+    - name: Upload to Hostinger
+      uses: SamKirkland/FTP-Deploy-Action@4.3.0
+      with:
+        server: ${{ secrets.FTP_HOST }}
+        username: ${{ secrets.FTP_USER }}
+        password: ${{ secrets.FTP_PASS }}
+        local-dir: ./data/
+        server-dir: /public_html/
