@@ -5,7 +5,8 @@
   "main": "scrape.js",
   "scripts": {
     "start": "node scrape.js",
-    "fast": "node scrape_fast.js"
+    "fast": "node scrape_fast.js",
+    "live": "node scrape_live.js"
   },
   "dependencies": {
     "puppeteer": "^21.0.0",
