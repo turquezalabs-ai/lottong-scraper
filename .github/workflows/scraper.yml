@@ -1,19 +1,11 @@
-name: PCSO Lotto Scraper (Dual Schedule)
+name: PCSO Lotto Scraper (Debug)
 
 on:
   schedule:
-    # 1. REAL-TIME SCHEDULE (Manila Time)
-    # 2:10 PM = 06:10 UTC
     - cron: '10 6 * * *'
-    # 5:10 PM = 09:10 UTC
     - cron: '10 9 * * *'
-    # 9:10 PM = 13:10 UTC
     - cron: '10 13 * * *'
-    
-    # 2. OFFICIAL FULL SCHEDULE (Manila Time)
-    # 11:00 PM = 15:00 UTC
     - cron: '0 15 * * *'
-    
   workflow_dispatch:
 
 jobs:
@@ -29,26 +21,31 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install Dependencies
+      - name: Install Browser Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64 libpango-1.0-0 libcairo2 libatspi2.0-0 libxshmfence1
-          npm install
 
-      # Logic to decide which script to run based on time
+      - name: Install NPM Packages
+        run: npm install
+
+      # DEBUG: List files to ensure scripts exist
+      - name: List Files
+        run: ls -R
+
+      # LOGIC: Decide which script to run
       - name: Determine Scraper
         id: pick
         run: |
           HOUR=$(date -u +%H)
           echo "Current UTC Hour: $HOUR"
-          # 15:00 UTC = 11 PM Manila -> Run Official Scraper
           if [[ "$HOUR" == "15" ]]; then
             echo "script=scrape.js" >> $GITHUB_OUTPUT
           else
-            # All other times (2PM, 5PM, 9PM) -> Run Live Scraper
             echo "script=scrape_live.js" >> $GITHUB_OUTPUT
           fi
 
+      # RUN: Execute the chosen script
       - name: Run Scraper
         run: node ${{ steps.pick.outputs.script }}
 
