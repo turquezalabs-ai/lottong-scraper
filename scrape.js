@@ -72,7 +72,7 @@ async function fetchExistingData(url) {
 
     try {
         console.log("🌐 Navigating to PCSO...");
-        await page.goto(PCSO_URL, { waitUntil: 'networkidle2' });
+       await page.goto(PCSO_URL, { waitUntil: 'domcontentloaded' });
 
         // --- DATE LOGIC: LAST 30 DAYS ---
         const now = new Date();
@@ -171,3 +171,4 @@ async function fetchExistingData(url) {
 
     await browser.close();
 })();
+
