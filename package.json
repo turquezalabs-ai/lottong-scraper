@@ -1,0 +1,15 @@
+{
+  "name": "lottong-pinoy-scraper",
+  "version": "1.0.0",
+  "description": "PCSO Lotto Scraper",
+  "main": "scrape.js",
+  "scripts": {
+    "start": "node scrape.js",
+    "fast": "node scrape_fast.js"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
